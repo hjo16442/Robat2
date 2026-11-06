@@ -2,15 +2,15 @@ package com.robat2.mobile;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.content.Intent;
 import android.graphics.Typeface;
-import android.view.Gravity;
+import android.net.Uri;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import org.json.JSONObject;
 
@@ -24,11 +24,13 @@ import java.net.URL;
 public class MainActivity extends Activity {
     private EditText repoInput, prInput, tokenInput;
     private TextView status;
+    private Button runButton;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().setStatusBarColor(0xFF10243A);
         getWindow().setNavigationBarColor(0xFF10243A);
+
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(24, 28, 24, 24);
@@ -49,7 +51,7 @@ public class MainActivity extends Activity {
         content.addView(title);
 
         TextView intro = new TextView(this);
-        intro.setText("اجرای اصلاح خودکار کد در Pull Request گیت‌هاب\n\nاطلاعات مخزن و شماره PR را وارد کن. برنامه فرمان /fix را به گفت‌وگوی همان PR می‌فرستد تا GitHub Actions موجود در مخزن اجرا شود.");
+        intro.setText("دستیار اصلاح کد با هوش مصنوعی\n\nاطلاعات مخزن و شماره Pull Request را وارد کن. ربات فرمان /fix را می‌فرستد؛ موتور هوش مصنوعی در GitHub Actions کدهای Java تغییرکرده را بررسی و اصلاح می‌کند و فقط پس از موفقیت تست‌های پروژه، تغییرات را ثبت می‌کند.");
         intro.setTextSize(15);
         intro.setTextColor(0xFF334155);
         intro.setPadding(0, 12, 0, 20);
@@ -58,30 +60,36 @@ public class MainActivity extends Activity {
         repoInput = field(content, "نام مخزن (مثلاً hjo16442/Robat2)");
         prInput = field(content, "شماره Pull Request");
         tokenInput = field(content, "GitHub Personal Access Token");
-        tokenInput.setInputType( textPasswordType() );
+        tokenInput.setInputType(129);
 
-        Button run = new Button(this);
-        run.setText("ارسال فرمان اصلاح کد");
-        content.addView(run);
+        runButton = new Button(this);
+        runButton.setText("شروع بررسی و اصلاح کد");
+        content.addView(runButton);
+
+        Button actionsButton = new Button(this);
+        actionsButton.setText("مشاهده اجرای ربات در GitHub");
+        content.addView(actionsButton);
+
         status = new TextView(this);
         status.setText("آماده");
         status.setTextSize(15);
         status.setTextColor(0xFF0F5132);
         status.setPadding(0, 20, 0, 0);
         content.addView(status);
+
         TextView note = new TextView(this);
-        note.setText("\nامنیت: توکن فقط برای همین درخواست در حافظه استفاده می‌شود و در برنامه ذخیره نمی‌شود. برای توکن، دسترسی Issues: Read and write مخزن را فعال کن. مخزن باید workflow اصلاح کد را داشته باشد.");
+        note.setText("\nراه‌اندازی یک‌باره: در GitHub بخش Settings → Secrets and variables → Actions یک Secret با نام GEMINI_API_KEY بساز و کلید Google AI Studio را در آن قرار بده. در Workflow permissions نیز Read and write را فعال کن. توکن برنامه باید دسترسی Issues: Read and write داشته باشد. توکن در برنامه ذخیره نمی‌شود.");
         note.setTextSize(13);
         note.setTextColor(0xFF64748B);
         note.setPadding(0, 18, 0, 0);
         content.addView(note);
+
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(page);
 
-        run.setOnClickListener(v -> submit());
+        runButton.setOnClickListener(v -> submit());
+        actionsButton.setOnClickListener(v -> openActions());
     }
-
-    private int textPasswordType() { return 129; }
 
     private EditText field(LinearLayout parent, String hint) {
         EditText e = new EditText(this);
@@ -95,19 +103,35 @@ public class MainActivity extends Activity {
         return e;
     }
 
+    private void openActions() {
+        String repo = repoInput.getText().toString().trim();
+        if (!repo.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")) {
+            status.setText("ابتدا نام مخزن را به شکل owner/repository وارد کن.");
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_VIEW,
+                Uri.parse("https://github.com/" + repo + "/actions"));
+        startActivity(intent);
+    }
+
     private void submit() {
         String repo = repoInput.getText().toString().trim();
         String pr = prInput.getText().toString().trim();
         String token = tokenInput.getText().toString().trim();
-        if (!repo.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+") || pr.isEmpty() || token.isEmpty()) {
-            status.setText("نام مخزن، شماره PR و توکن را درست وارد کن.");
+
+        if (!repo.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
+                || !pr.matches("[0-9]+") || token.isEmpty()) {
+            status.setText("نام مخزن، شماره عددی PR و توکن را درست وارد کن.");
             return;
         }
-        status.setText("در حال ارسال درخواست...");
+
+        runButton.setEnabled(false);
+        status.setText("در حال ارسال درخواست به GitHub...");
         new Thread(() -> {
             HttpURLConnection c = null;
             try {
-                URL url = new URL("https://api.github.com/repos/" + repo + "/issues/" + pr + "/comments");
+                URL url = new URL("https://api.github.com/repos/" + repo
+                        + "/issues/" + pr + "/comments");
                 c = (HttpURLConnection) url.openConnection();
                 c.setRequestMethod("POST");
                 c.setConnectTimeout(15000);
@@ -117,26 +141,37 @@ public class MainActivity extends Activity {
                 c.setRequestProperty("Authorization", "Bearer " + token);
                 c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
                 c.setDoOutput(true);
+
                 JSONObject body = new JSONObject();
                 body.put("body", "/fix");
                 try (OutputStream os = c.getOutputStream()) {
                     os.write(body.toString().getBytes("UTF-8"));
                 }
+
                 int code = c.getResponseCode();
-                InputStream stream = code >= 200 && code < 300 ? c.getInputStream() : c.getErrorStream();
-                StringBuilder response = new StringBuilder();
+                InputStream stream = code >= 200 && code < 300
+                        ? c.getInputStream() : c.getErrorStream();
                 if (stream != null) {
-                    try (BufferedReader r = new BufferedReader(new InputStreamReader(stream, "UTF-8"))) {
-                        String line;
-                        while ((line = r.readLine()) != null) response.append(line);
+                    try (BufferedReader r = new BufferedReader(
+                            new InputStreamReader(stream, "UTF-8"))) {
+                        while (r.readLine() != null) { /* consume response */ }
                     }
                 }
+
                 final String message = code >= 200 && code < 300
-                    ? "فرمان /fix با موفقیت برای PR ارسال شد. اجرای GitHub Actions را در بخش Actions مخزن بررسی کن."
-                    : "ارسال ناموفق بود (HTTP " + code + "). توکن و دسترسی Issues را بررسی کن. " + response;
-                runOnUiThread(() -> status.setText(message));
+                        ? "درخواست اصلاح با موفقیت ثبت شد. اجرای AI Code Fixer را در GitHub Actions ببین. اگر GEMINI_API_KEY تنظیم نشده باشد، اصلاح انجام نمی‌شود."
+                        : "ارسال ناموفق بود (HTTP " + code + "). مجوز Issues: Read and write توکن و شماره PR را بررسی کن.";
+                runOnUiThread(() -> {
+                    status.setText(message);
+                    tokenInput.setText("");
+                    runButton.setEnabled(true);
+                });
             } catch (Exception ex) {
-                runOnUiThread(() -> status.setText("خطا در اتصال: " + ex.getMessage()));
+                runOnUiThread(() -> {
+                    status.setText("خطا در اتصال به GitHub: " + ex.getMessage());
+                    tokenInput.setText("");
+                    runButton.setEnabled(true);
+                });
             } finally {
                 if (c != null) c.disconnect();
             }
