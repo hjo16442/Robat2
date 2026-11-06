@@ -9,22 +9,23 @@ permissions:
   pull-requests: write
   issues: write
 
+concurrency:
+  group: ai-code-fixer-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
 jobs:
   fix:
     if: |
       github.event.issue.pull_request != null &&
-      startsWith(github.event.comment.body, '/fix') &&
-      github.event.comment.user.type != 'Bot'
+      (github.event.comment.body == '/fix' || startsWith(github.event.comment.body, '/fix ')) &&
+      github.event.comment.user.type != 'Bot' &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
 
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout PR branch
+      - name: Checkout AI fixer source
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.issue.pull_request.head.ref }}
-          repository: ${{ github.event.issue.pull_request.head.repo.full_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -33,12 +34,22 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build bot
-        run: mvn -B -q compile
+      - name: Checkout PR snapshot
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.repository.full_name }}
+          ref: refs/pull/${{ github.event.issue.number }}/head
+          path: target
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Build AI fixer
+        run: mvn -B -q -DskipTests package
 
       - name: Run AI Code Fixer
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
+          TARGET_DIR: target
         run: mvn -B -q exec:java -Dexec.mainClass="Main"
