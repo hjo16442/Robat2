@@ -87,7 +87,9 @@ public class Main {
             return;
         }
 
-        run(targetDir, "git", "diff", "--check");
+        List<String> checkCommand = new ArrayList<>(Arrays.asList("git", "diff", "--check", "--"));
+        checkCommand.addAll(changes.keySet());
+        run(targetDir, checkCommand.toArray(new String[0]));
 
         run(targetDir, "git", "config", "user.name", "AI Code Fixer");
         run(targetDir, "git", "config", "user.email", "ai-fixer@users.noreply.github.com");
