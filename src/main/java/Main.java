@@ -191,7 +191,7 @@ public class Main {
                 Prefer secure defaults, input validation, error handling, and accessible UI.
                 If the request is dangerously ambiguous, impossible with the supplied project, or needs
                 a secret/permission not present, return no edits and explain the missing requirement.
-                Only edit paths present in the supplied project. Do not delete files.
+                Existing files may only be edited when their full contents were supplied. You may also create new source, resource, or documentation files when needed, provided their paths pass the repository path allowlist. Do not delete files.
                 Return ONLY valid JSON with this exact shape:
                 {"summary":"short Persian explanation of implemented work","edits":[{"path":"relative/path","content":"complete full file content"}]}
                 The edits array may be empty if no safe, meaningful implementation is possible.
