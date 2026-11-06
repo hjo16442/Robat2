@@ -22,7 +22,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class MainActivity extends Activity {
-    private EditText repoInput, prInput, tokenInput;
+    private EditText repoInput, prInput, tokenInput, requestInput;
     private TextView status;
     private Button runButton;
 
@@ -44,14 +44,14 @@ public class MainActivity extends Activity {
         scroll.addView(content);
 
         TextView title = new TextView(this);
-        title.setText("ربات ۲");
-        title.setTextSize(28);
+        title.setText("ربات ۲ | برنامه‌نویس هوشمند");
+        title.setTextSize(25);
         title.setTypeface(null, Typeface.BOLD);
         title.setTextColor(0xFF10243A);
         content.addView(title);
 
         TextView intro = new TextView(this);
-        intro.setText("دستیار اصلاح کد با هوش مصنوعی\n\nاطلاعات مخزن و شماره Pull Request را وارد کن. ربات فرمان /fix را می‌فرستد؛ موتور هوش مصنوعی در GitHub Actions کدهای Java تغییرکرده را بررسی و اصلاح می‌کند و فقط پس از موفقیت تست‌های پروژه، تغییرات را ثبت می‌کند.");
+        intro.setText("درخواستت را مثل صحبت با یک برنامه‌نویس بنویس. ربات ساختار پروژه را بررسی می‌کند، فایل‌های مرتبط را پیدا می‌کند، قابلیت یا اصلاح درخواستی را در چند فایل پیاده‌سازی می‌کند و قبل از ثبت تغییرات، تست پروژه را اجرا می‌کند.");
         intro.setTextSize(15);
         intro.setTextColor(0xFF334155);
         intro.setPadding(0, 12, 0, 20);
@@ -62,8 +62,28 @@ public class MainActivity extends Activity {
         tokenInput = field(content, "GitHub Personal Access Token");
         tokenInput.setInputType(129);
 
+        TextView requestLabel = new TextView(this);
+        requestLabel.setText("چه کاری روی کد انجام بدهم؟");
+        requestLabel.setTextSize(15);
+        requestLabel.setTypeface(null, Typeface.BOLD);
+        requestLabel.setTextColor(0xFF10243A);
+        requestLabel.setPadding(0, 8, 0, 4);
+        content.addView(requestLabel);
+
+        requestInput = new EditText(this);
+        requestInput.setHint("مثلاً: قابلیت ورود با اثر انگشت اضافه کن و ظاهر برنامه را فارسی و حرفه‌ای کن...");
+        requestInput.setTextSize(15);
+        requestInput.setGravity( android.view.Gravity.TOP | android.view.Gravity.RIGHT );
+        requestInput.setMinLines(4);
+        requestInput.setMaxLines(8);
+        requestInput.setPadding(14, 12, 14, 12);
+        requestInput.setBackgroundColor(0xFFFFFFFF);
+        LinearLayout.LayoutParams requestParams = new LinearLayout.LayoutParams(-1, -2);
+        requestParams.bottomMargin = 16;
+        content.addView(requestInput, requestParams);
+
         runButton = new Button(this);
-        runButton.setText("شروع بررسی و اصلاح کد");
+        runButton.setText("اجرای درخواست و پیاده‌سازی در کد");
         content.addView(runButton);
 
         Button actionsButton = new Button(this);
@@ -71,14 +91,14 @@ public class MainActivity extends Activity {
         content.addView(actionsButton);
 
         status = new TextView(this);
-        status.setText("آماده");
+        status.setText("آماده دریافت درخواست");
         status.setTextSize(15);
         status.setTextColor(0xFF0F5132);
         status.setPadding(0, 20, 0, 0);
         content.addView(status);
 
         TextView note = new TextView(this);
-        note.setText("\nراه‌اندازی یک‌باره: در GitHub بخش Settings → Secrets and variables → Actions یک Secret با نام GEMINI_API_KEY بساز و کلید Google AI Studio را در آن قرار بده. در Workflow permissions نیز Read and write را فعال کن. توکن برنامه باید دسترسی Issues: Read and write داشته باشد. توکن در برنامه ذخیره نمی‌شود.");
+        note.setText("\nراه‌اندازی یک‌باره: در GitHub بخش Settings → Secrets and variables → Actions یک Secret با نام GEMINI_API_KEY بساز. در Workflow permissions گزینه Read and write را فعال کن. توکن برنامه باید دسترسی Issues: Read and write داشته باشد. توکن در برنامه ذخیره نمی‌شود. ربات فایل‌های متنی مجاز پروژه را بررسی می‌کند؛ فایل‌های امنیتی و تنظیمات Workflow را تغییر نمی‌دهد.");
         note.setTextSize(13);
         note.setTextColor(0xFF64748B);
         note.setPadding(0, 18, 0, 0);
@@ -86,7 +106,6 @@ public class MainActivity extends Activity {
 
         page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(page);
-
         runButton.setOnClickListener(v -> submit());
         actionsButton.setOnClickListener(v -> openActions());
     }
@@ -109,19 +128,18 @@ public class MainActivity extends Activity {
             status.setText("ابتدا نام مخزن را به شکل owner/repository وارد کن.");
             return;
         }
-        Intent intent = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("https://github.com/" + repo + "/actions"));
-        startActivity(intent);
+        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/" + repo + "/actions")));
     }
 
     private void submit() {
         String repo = repoInput.getText().toString().trim();
         String pr = prInput.getText().toString().trim();
         String token = tokenInput.getText().toString().trim();
+        String instruction = requestInput.getText().toString().trim();
 
         if (!repo.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
-                || !pr.matches("[0-9]+") || token.isEmpty()) {
-            status.setText("نام مخزن، شماره عددی PR و توکن را درست وارد کن.");
+                || !pr.matches("[0-9]+") || token.isEmpty() || instruction.isEmpty()) {
+            status.setText("نام مخزن، شماره PR، توکن و شرح کاری که می‌خواهی انجام شود را وارد کن.");
             return;
         }
 
@@ -130,8 +148,7 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             HttpURLConnection c = null;
             try {
-                URL url = new URL("https://api.github.com/repos/" + repo
-                        + "/issues/" + pr + "/comments");
+                URL url = new URL("https://api.github.com/repos/" + repo + "/issues/" + pr + "/comments");
                 c = (HttpURLConnection) url.openConnection();
                 c.setRequestMethod("POST");
                 c.setConnectTimeout(15000);
@@ -143,24 +160,22 @@ public class MainActivity extends Activity {
                 c.setDoOutput(true);
 
                 JSONObject body = new JSONObject();
-                body.put("body", "/fix");
+                body.put("body", "/fix " + instruction);
                 try (OutputStream os = c.getOutputStream()) {
                     os.write(body.toString().getBytes("UTF-8"));
                 }
 
                 int code = c.getResponseCode();
-                InputStream stream = code >= 200 && code < 300
-                        ? c.getInputStream() : c.getErrorStream();
+                InputStream stream = code >= 200 && code < 300 ? c.getInputStream() : c.getErrorStream();
                 if (stream != null) {
-                    try (BufferedReader r = new BufferedReader(
-                            new InputStreamReader(stream, "UTF-8"))) {
-                        while (r.readLine() != null) { /* consume response */ }
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"))) {
+                        while (reader.readLine() != null) { }
                     }
                 }
 
                 final String message = code >= 200 && code < 300
-                        ? "درخواست اصلاح با موفقیت ثبت شد. اجرای AI Code Fixer را در GitHub Actions ببین. اگر GEMINI_API_KEY تنظیم نشده باشد، اصلاح انجام نمی‌شود."
-                        : "ارسال ناموفق بود (HTTP " + code + "). مجوز Issues: Read and write توکن و شماره PR را بررسی کن.";
+                        ? "درخواست ثبت شد. ربات اکنون پروژه را بررسی و درخواستت را پیاده‌سازی می‌کند. وضعیت را در GitHub Actions ببین."
+                        : "ارسال ناموفق بود (HTTP " + code + "). مجوز Issues: Read and write و شماره PR را بررسی کن.";
                 runOnUiThread(() -> {
                     status.setText(message);
                     tokenInput.setText("");
