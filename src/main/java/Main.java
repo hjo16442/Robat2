@@ -130,7 +130,7 @@ public class Main {
 
     private static String callGemini(String prompt, String key) throws Exception {
         String url = "https://generativelanguage.googleapis.com/v1beta/models/"
-                + "gemini-2.5-flash:generateContent";
+                + "gemini-3.8-flash:generateContent";
 
         JsonObject part = new JsonObject();
         part.addProperty("text", prompt);
