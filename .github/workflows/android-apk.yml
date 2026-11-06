@@ -21,6 +21,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Test AI fixer engine
+        run: mvn -B test
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
